@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Registro de Despesa - My Money</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    .container { max-width: 640px; margin: 0 auto; }
+    form { display: grid; gap: 12px; }
+    label { font-weight: bold; }
+    input, select, button { padding: 8px; font-size: 14px; }
+    .row { display: grid; gap: 6px; }
+    .hint { color: #666; font-size: 12px; }
+    .success { color: #1b5e20; }
+    .error { color: #b71c1c; white-space: pre-wrap; }
+    fieldset { border: 1px solid #ccc; padding: 10px; }
+    legend { font-size: 12px; color: #444; }
+    nav a { margin-right: 12px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Registro de Despesa</h1>
+    <nav>
+      <a href="/ui.html">Início</a>
+      <a href="/register.html">Cadastrar Usuário</a>
+      <a href="/swagger-ui.html" target="_blank">Swagger UI</a>
+    </nav>
+
+    <p class="hint">Para registrar uma despesa é necessário autenticar-se. Use seu e-mail ou telefone como usuário.</p>
+
+    <form id="despesaForm">
+      <fieldset>
+        <legend>Autenticação (Basic)</legend>
+        <div class="row">
+          <label for="username">Usuário (e-mail ou telefone)</label>
+          <input id="username" name="username" type="text" required />
+        </div>
+        <div class="row">
+          <label for="password">Senha</label>
+          <input id="password" name="password" type="password" required />
+        </div>
+      </fieldset>
+
+      <div class="row">
+        <label for="descricao">Descrição</label>
+        <input id="descricao" name="descricao" type="text" required />
+      </div>
+      <div class="row">
+        <label for="valor">Valor (em reais)</label>
+        <input id="valor" name="valor" type="number" step="0.01" min="0.01" required />
+      </div>
+      <div class="row">
+        <label for="dataHora">Data e Hora</label>
+        <input id="dataHora" name="dataHora" type="datetime-local" required />
+      </div>
+      <div class="row">
+        <label for="tipoPagamento">Tipo de Pagamento</label>
+        <select id="tipoPagamento" name="tipoPagamento" required>
+          <option value="DINHEIRO">Dinheiro</option>
+          <option value="PIX">PIX</option>
+          <option value="CARTAO_CREDITO">Cartão de Crédito</option>
+          <option value="CARTAO_DEBITO">Cartão de Débito</option>
+        </select>
+      </div>
+
+      <button type="submit">Salvar Despesa</button>
+    </form>
+
+    <p id="result" class="success" style="display:none"></p>
+    <pre id="error" class="error" style="display:none"></pre>
+  </div>
+
+  <script>
+    function show(el, text) { el.style.display = 'block'; el.textContent = text; }
+    function hide(el) { el.style.display = 'none'; el.textContent = ''; }
+
+    function toLocalDateTimeString(dtValue) {
+      // Convert from input datetime-local (YYYY-MM-DDTHH:mm) to ISO-like without timezone suitable for LocalDateTime
+      // Some browsers include seconds; normalize
+      if (!dtValue) return null;
+      // Ensure has seconds: add :00 if missing
+      return dtValue.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/) ? (dtValue.length === 16 ? dtValue + ':00' : dtValue) : dtValue;
+    }
+
+    document.getElementById('despesaForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const resultEl = document.getElementById('result');
+      const errorEl = document.getElementById('error');
+      hide(resultEl); hide(errorEl);
+
+      const username = document.getElementById('username').value.trim();
+      const password = document.getElementById('password').value;
+
+      const payload = {
+        descricao: document.getElementById('descricao').value.trim(),
+        valor: parseFloat(document.getElementById('valor').value),
+        dataHora: toLocalDateTimeString(document.getElementById('dataHora').value),
+        tipoPagamento: document.getElementById('tipoPagamento').value
+      };
+
+      if (!payload.descricao || !payload.valor || !payload.dataHora || !payload.tipoPagamento) {
+        show(errorEl, 'Preencha todos os campos da despesa.');
+        return;
+      }
+
+      try {
+        const resp = await fetch('/api/despesas', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Basic ' + btoa(username + ':' + password)
+          },
+          body: JSON.stringify(payload)
+        });
+        const text = await resp.text();
+        if (!resp.ok) {
+          try { const obj = JSON.parse(text); show(errorEl, obj.message ? obj.message : text); }
+          catch { show(errorEl, text || ('Erro ' + resp.status)); }
+          return;
+        }
+        show(resultEl, 'Despesa registrada com sucesso!');
+        e.target.reset();
+      } catch (err) {
+        show(errorEl, 'Falha na requisição: ' + err.message);
+      }
+    });
+  </script>
+</body>
+</html>

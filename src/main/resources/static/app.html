@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Minhas Despesas - My Money</title>
+  <style>
+    :root { --primary:#2563eb; --bg:#0b1220; --surface:#0f172a; --card:#111827; --text:#e5e7eb; --muted:#94a3b8; --danger:#ef4444; --accent:#06b6d4; }
+    *{box-sizing:border-box}
+    body{ margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; background:linear-gradient(180deg,#0b1220,#0a0f1a); color:var(--text); }
+    .page{ min-height:100dvh; display:grid; grid-template-rows:auto 1fr auto; }
+    header{ position:sticky; top:0; backdrop-filter: blur(8px); background:rgba(2,6,23,.7); padding:14px 16px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid rgba(255,255,255,.06); }
+    header h1{ margin:0; font-size:18px; }
+    .btn{ background:var(--primary); color:#fff; border:none; padding:10px 12px; border-radius:12px; font-weight:600; cursor:pointer; }
+    .btn.secondary{ background:#0b1220; border:1px solid rgba(255,255,255,.08); color:var(--text); }
+    .content{ padding:14px; display:grid; gap:16px; }
+    .card{ background:rgba(17,24,39,.9); border:1px solid rgba(255,255,255,.06); border-radius:16px; padding:14px; }
+    .row{ display:grid; gap:6px; }
+    .grid2{ display:grid; gap:10px; grid-template-columns:1fr 1fr; }
+    label{ font-size:12px; color:var(--muted); }
+    input, select { width:100%; padding:10px 12px; background:#0b1220; border:1px solid rgba(255,255,255,.08); color:var(--text); border-radius:12px; outline:none; }
+    input:focus, select:focus{ border-color:var(--primary); box-shadow:0 0 0 3px rgba(37,99,235,.2); }
+    ul.list{ list-style:none; margin:0; padding:0; display:grid; gap:10px; }
+    .item{ display:flex; justify-content:space-between; align-items:center; padding:10px; background:#0b1220; border:1px solid rgba(255,255,255,.06); border-radius:12px; }
+    .item .title{ font-weight:600; }
+    .item .meta{ color:var(--muted); font-size:12px; }
+    .empty{ color:var(--muted); text-align:center; padding:14px 0; }
+    .error{ color:#fecaca; background:#450a0a; padding:10px 12px; border:1px solid #7f1d1d; border-radius:12px; display:none; white-space:pre-wrap; }
+    .success{ color:#dcfce7; background:#052e16; padding:10px 12px; border:1px solid #14532d; border-radius:12px; display:none; }
+    footer{ padding:14px; color:var(--muted); font-size:12px; text-align:center; }
+  </style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <h1>Minhas Despesas</h1>
+    <div style="display:flex; gap:8px;">
+      <button class="btn secondary" id="btnRefresh">Atualizar</button>
+      <button class="btn" id="btnLogout">Sair</button>
+    </div>
+  </header>
+
+  <div class="content">
+    <div id="error" class="error"></div>
+    <div id="ok" class="success"></div>
+
+    <div class="card">
+      <h3 style="margin:0 0 8px;">Novo lançamento</h3>
+      <div class="grid2">
+        <div class="row">
+          <label for="descricao">Descrição</label>
+          <input id="descricao" type="text" placeholder="ex: Mercado" />
+        </div>
+        <div class="row">
+          <label for="valor">Valor</label>
+          <input id="valor" type="number" inputmode="decimal" step="0.01" min="0.01" placeholder="0,00" />
+        </div>
+        <div class="row">
+          <label for="dataHora">Data e hora</label>
+          <input id="dataHora" type="datetime-local" />
+        </div>
+        <div class="row">
+          <label for="tipoPagamento">Pagamento</label>
+          <select id="tipoPagamento">
+            <option value="DINHEIRO">Dinheiro</option>
+            <option value="PIX">PIX</option>
+            <option value="CARTAO_CREDITO">Cartão de Crédito</option>
+            <option value="CARTAO_DEBITO">Cartão de Débito</option>
+          </select>
+        </div>
+      </div>
+      <div style="margin-top:10px; display:flex; justify-content:flex-end;">
+        <button class="btn" id="btnAdd">Salvar</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin:0 0 8px;">Relatório</h3>
+      <div class="grid2">
+        <div class="row">
+          <label for="inicio">Início (dia)</label>
+          <input id="inicio" type="date" />
+        </div>
+        <div class="row">
+          <label for="fim">Fim (dia)</label>
+          <input id="fim" type="date" />
+        </div>
+      </div>
+      <div style="margin-top:10px; display:flex; gap:8px;">
+        <button class="btn secondary" id="btnRelatorio">Gerar</button>
+        <div id="relResumo" class="success" style="display:none"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin:0 0 8px;">Lista</h3>
+      <ul id="lista" class="list"></ul>
+      <div id="vazio" class="empty" style="display:none">Nenhuma despesa encontrada.</div>
+      <div id="paginacao" style="display:flex; justify-content:space-between; align-items:center; margin-top:10px;">
+        <button class="btn secondary" id="btnPrev">Anterior</button>
+        <div id="pageInfo" class="muted"></div>
+        <button class="btn secondary" id="btnNext">Próxima</button>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    My Money • Interface mobile-like • <a href="/swagger-ui.html" target="_blank" style="color:#93c5fd;">API</a>
+  </footer>
+</div>
+
+<script>
+  function show(el, text){ el.style.display='block'; if(text!==undefined) el.textContent=text; }
+  function hide(el){ el.style.display='none'; if(el.tagName==='DIV') el.textContent=''; }
+  function auth(){ return localStorage.getItem('mm_auth'); }
+  function requireAuth(){ const t = auth(); if(!t){ location.replace('/login.html'); return null; } return t; }
+  function toLocalDateTimeString(dt){ if(!dt) return null; return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/.test(dt) ? (dt.length===16? dt+':00': dt) : dt; }
+  function money(n){ try{ return Number(n).toLocaleString('pt-BR',{style:'currency',currency:'BRL'}); }catch{ return 'R$ '+n; } }
+  function fmt(dt){ try{ const d = new Date(dt); if(!isNaN(d)) return d.toLocaleString('pt-BR'); }catch{} return dt; }
+
+  let currentPage = 0;
+  const pageSize = 10;
+
+  async function fetchJSON(url, options){
+    const token = requireAuth(); if(!token) return Promise.reject('NA');
+    const resp = await fetch(url, { ...(options||{}), headers: { ...(options&&options.headers||{}), 'Authorization': token, 'Content-Type': 'application/json' }});
+    if(resp.status===401){ localStorage.removeItem('mm_auth'); location.replace('/login.html'); return Promise.reject('unauthorized'); }
+    const text = await resp.text();
+    try{ return { ok: resp.ok, status: resp.status, data: text? JSON.parse(text): null, raw:text }; }
+    catch{ return { ok: resp.ok, status: resp.status, data: null, raw:text }; }
+  }
+
+  async function carregarLista(){
+    const err = document.getElementById('error'); hide(err);
+    const { ok, data, raw, status } = await fetchJSON(`/api/despesas?page=${currentPage}&size=${pageSize}`);
+    if(!ok){ show(err, (data && data.message) || raw || ('HTTP '+status)); return; }
+    const ul = document.getElementById('lista'); ul.innerHTML='';
+    const vazio = document.getElementById('vazio');
+    const items = Array.isArray(data)? data: [];
+    const pageInfo = document.getElementById('pageInfo');
+    if(items.length===0){
+      if(currentPage>0){ // no items on this page, go back one and reload
+        currentPage = Math.max(0, currentPage-1);
+        return carregarLista();
+      }
+      show(vazio); pageInfo.textContent = 'Página 1';
+      document.getElementById('btnPrev').disabled = true;
+      document.getElementById('btnNext').disabled = true;
+      return;
+    } else hide(vazio);
+    for(const d of items){
+      const li = document.createElement('li'); li.className='item';
+      const left = document.createElement('div');
+      const right = document.createElement('div');
+      right.style.textAlign='right';
+      const title = document.createElement('div'); title.className='title'; title.textContent = d.descricao;
+      const meta = document.createElement('div'); meta.className='meta'; meta.textContent = fmt(d.dataHora) + ' • ' + d.tipoPagamento;
+      const val = document.createElement('div'); val.className='title'; val.textContent = money(d.valor);
+      left.appendChild(title); left.appendChild(meta); right.appendChild(val);
+      li.appendChild(left); li.appendChild(right); ul.appendChild(li);
+    }
+    pageInfo.textContent = `Página ${currentPage+1}`;
+    document.getElementById('btnPrev').disabled = currentPage===0;
+    // We can't know total; disable Next only if returned less than pageSize
+    document.getElementById('btnNext').disabled = items.length < pageSize;
+  }
+
+  async function criarDespesa(){
+    const err = document.getElementById('error'); const ok = document.getElementById('ok'); hide(err); hide(ok);
+    const payload = {
+      descricao: document.getElementById('descricao').value.trim(),
+      valor: parseFloat(document.getElementById('valor').value),
+      dataHora: toLocalDateTimeString(document.getElementById('dataHora').value),
+      tipoPagamento: document.getElementById('tipoPagamento').value
+    };
+    if(!payload.descricao || !payload.valor || !payload.dataHora || !payload.tipoPagamento){ show(err,'Preencha todos os campos do lançamento.'); return; }
+    const res = await fetchJSON('/api/despesas', { method:'POST', body: JSON.stringify(payload) });
+    if(!res.ok){ show(err, (res.data && res.data.message) || res.raw || ('HTTP '+res.status)); return; }
+    show(ok,'Despesa salva!');
+    document.getElementById('descricao').value='';
+    document.getElementById('valor').value='';
+    document.getElementById('dataHora').value='';
+    document.getElementById('tipoPagamento').value='DINHEIRO';
+    carregarLista();
+  }
+
+  async function gerarRelatorio(){
+    const err = document.getElementById('error'); hide(err);
+    const resumo = document.getElementById('relResumo'); hide(resumo);
+    const inicio = document.getElementById('inicio').value; // YYYY-MM-DD
+    const fim = document.getElementById('fim').value; // YYYY-MM-DD
+    if(!inicio || !fim){ show(err,'Informe início e fim.'); return; }
+    const url = `/api/despesas/relatorio?inicio=${encodeURIComponent(inicio)}&fim=${encodeURIComponent(fim)}`;
+    const res = await fetchJSON(url);
+    if(!res.ok){ show(err, (res.data && res.data.message) || res.raw || ('HTTP '+res.status)); return; }
+    const r = res.data || { total:0, quantidade:0 };
+    show(resumo, `Total: ${money(r.total)} • Itens: ${r.quantidade}`);
+  }
+
+  document.getElementById('btnLogout').addEventListener('click', ()=>{ localStorage.removeItem('mm_auth'); location.replace('/login.html'); });
+  document.getElementById('btnRefresh').addEventListener('click', ()=>{ currentPage = 0; carregarLista(); });
+  document.getElementById('btnAdd').addEventListener('click', async ()=>{ await criarDespesa(); currentPage = 0; carregarLista(); });
+  document.getElementById('btnRelatorio').addEventListener('click', gerarRelatorio);
+  document.getElementById('btnPrev').addEventListener('click', ()=>{ if(currentPage>0){ currentPage--; carregarLista(); }});
+  document.getElementById('btnNext').addEventListener('click', ()=>{ currentPage++; carregarLista(); });
+
+  // Initial load
+  if(requireAuth()){ carregarLista(); }
+</script>
+</body>
+</html>

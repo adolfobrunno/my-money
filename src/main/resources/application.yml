@@ -1,0 +1,18 @@
+spring:
+  application:
+    name: my-money
+  data:
+    mongodb:
+      uri: ${SPRING_DATA_MONGODB_URI:mongodb://root:secret@localhost:27017/mydatabase?authSource=admin}
+server:
+  port: ${SERVER_PORT:8080}
+meta:
+  whatsapp:
+    verify-token: ${META_WHATSAPP_VERIFY_TOKEN:fAkE_vErIfY_tOkEn}
+    access-token: ${META_WHATSAPP_ACCESS_TOKEN:FAKE_ACCESS_TOKEN}
+    phone-number-id: ${META_WHATSAPP_PHONE_NUMBER_ID:000000000000000}
+    app-secret: ${META_WHATSAPP_APP_SECRET:FAKE_APP_SECRET}
+openai:
+  api-key: ${OPENAI_API_KEY:FAKE_OPENAI_API_KEY}
+  base-url: ${OPENAI_BASE_URL:https://api.openai.com/v1}
+  model: ${OPENAI_MODEL:gpt-4o-mini}

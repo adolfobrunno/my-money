@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Entrar - My Money</title>
+  <style>
+    :root { --primary:#2563eb; --bg:#0f172a; --card:#111827; --text:#e5e7eb; --muted:#94a3b8; --danger:#ef4444; --success:#22c55e; }
+    *{box-sizing:border-box}
+    body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; background:linear-gradient(180deg,#0b1220,#0a0f1a); color:var(--text); }
+    .app { min-height:100dvh; display:grid; place-items:center; padding:20px; }
+    .card { width:100%; max-width:420px; background:rgba(17,24,39,.9); border:1px solid rgba(255,255,255,.06); border-radius:16px; padding:20px; box-shadow:0 10px 30px rgba(0,0,0,.4); }
+    h1 { margin:0 0 4px; font-size:22px; }
+    p.subtitle{ margin:0 0 16px; color:var(--muted); font-size:14px; }
+    form{ display:grid; gap:12px; }
+    label{ font-size:13px; color:var(--muted); }
+    input{ width:100%; padding:12px 14px; background:#0b1220; border:1px solid rgba(255,255,255,.08); color:var(--text); border-radius:12px; outline:none; }
+    input:focus{ border-color:var(--primary); box-shadow:0 0 0 3px rgba(37,99,235,.2); }
+    .btn { display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:12px 14px; background:var(--primary); color:white; border:none; border-radius:12px; font-weight:600; cursor:pointer; }
+    .btn:active{ transform:translateY(1px); }
+    .row{ display:grid; gap:6px; }
+    .links{ display:flex; justify-content:space-between; align-items:center; margin-top:6px; font-size:13px; }
+    .links a{ color:#93c5fd; text-decoration:none; }
+    .links a:hover{ text-decoration:underline; }
+    .error{ color:#fecaca; background:#450a0a; padding:10px 12px; border:1px solid #7f1d1d; border-radius:12px; display:none; white-space:pre-wrap; }
+    .success{ color:#dcfce7; background:#052e16; padding:10px 12px; border:1px solid #14532d; border-radius:12px; display:none; }
+    .brand{ display:flex; align-items:center; gap:10px; margin-bottom:12px; }
+    .logo{ width:36px; height:36px; border-radius:10px; background:conic-gradient(from 180deg, #2563eb, #06b6d4, #22c55e, #2563eb); filter:saturate(1.2); }
+  </style>
+</head>
+<body>
+<div class="app">
+  <div class="card">
+    <div class="brand">
+      <div class="logo"></div>
+      <div>
+        <h1>My Money</h1>
+        <p class="subtitle">Entre para ver suas despesas</p>
+      </div>
+    </div>
+
+    <div id="error" class="error"></div>
+    <div id="ok" class="success"></div>
+
+    <form id="loginForm">
+      <div class="row">
+        <label for="username">Usuário (e-mail ou telefone)</label>
+        <input id="username" name="username" type="text" autocomplete="username" required />
+      </div>
+      <div class="row">
+        <label for="password">Senha</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required />
+      </div>
+      <button class="btn" type="submit">Entrar</button>
+      <div class="links">
+        <a href="/register.html">Criar conta</a>
+        <a href="/swagger-ui.html" target="_blank">API</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  function show(el, text){ el.style.display='block'; el.textContent=text; }
+  function hide(el){ el.style.display='none'; el.textContent=''; }
+  function saveAuth(u,p){ const t = 'Basic '+ btoa(u+':'+p); localStorage.setItem('mm_auth', t); }
+  function getAuth(){ return localStorage.getItem('mm_auth'); }
+
+  document.getElementById('loginForm').addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    const err = document.getElementById('error');
+    const ok = document.getElementById('ok');
+    hide(err); hide(ok);
+    const u = document.getElementById('username').value.trim();
+    const p = document.getElementById('password').value;
+    if(!u||!p){ show(err,'Preencha usuário e senha.'); return; }
+    // Probe an authenticated endpoint to validate credentials minimally
+    try{
+      const probe = await fetch('/api/despesas', { headers: { 'Authorization': 'Basic '+ btoa(u+':'+p) }});
+      if(probe.status === 200 || probe.status === 204 || probe.status === 404){
+        saveAuth(u,p);
+        show(ok,'Autenticado! Redirecionando...');
+        setTimeout(()=>{ location.href='/app.html'; }, 300);
+      } else if (probe.status === 401) {
+        show(err,'Credenciais inválidas.');
+      } else {
+        const text = await probe.text();
+        show(err, 'Falha ao autenticar: '+ (text || ('HTTP '+probe.status)));
+      }
+    }catch(ex){
+      show(err, 'Erro de rede: '+ ex.message);
+    }
+  });
+</script>
+</body>
+</html>

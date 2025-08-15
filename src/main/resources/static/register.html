@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cadastro de Usuário - My Money</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    .container { max-width: 520px; margin: 0 auto; }
+    form { display: grid; gap: 12px; }
+    label { font-weight: bold; }
+    input, button { padding: 8px; font-size: 14px; }
+    .row { display: grid; gap: 6px; }
+    .hint { color: #666; font-size: 12px; }
+    .success { color: #1b5e20; }
+    .error { color: #b71c1c; white-space: pre-wrap; }
+    nav a { margin-right: 12px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Cadastro de Usuário</h1>
+    <nav>
+      <a href="/ui.html">Início</a>
+      <a href="/despesa.html">Registrar Despesa</a>
+      <a href="/swagger-ui.html" target="_blank">Swagger UI</a>
+    </nav>
+    <p class="hint">Informe nome e senha, além de um meio de contato (e-mail ou telefone).</p>
+
+    <form id="registerForm">
+      <div class="row">
+        <label for="nome">Nome</label>
+        <input id="nome" name="nome" type="text" required />
+      </div>
+      <div class="row">
+        <label for="email">E-mail (opcional)</label>
+        <input id="email" name="email" type="email" />
+      </div>
+      <div class="row">
+        <label for="telefone">Telefone (opcional)</label>
+        <input id="telefone" name="telefone" type="tel" />
+      </div>
+      <div class="row">
+        <label for="senha">Senha</label>
+        <input id="senha" name="senha" type="password" required />
+      </div>
+      <button type="submit">Cadastrar</button>
+    </form>
+
+    <p id="result" class="success" style="display:none"></p>
+    <pre id="error" class="error" style="display:none"></pre>
+  </div>
+
+  <script>
+    function show(el, text) { el.style.display = 'block'; el.textContent = text; }
+    function hide(el) { el.style.display = 'none'; el.textContent = ''; }
+
+    document.getElementById('registerForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const resultEl = document.getElementById('result');
+      const errorEl = document.getElementById('error');
+      hide(resultEl); hide(errorEl);
+
+      const payload = {
+        nome: document.getElementById('nome').value.trim(),
+        email: document.getElementById('email').value.trim() || null,
+        telefone: document.getElementById('telefone').value.trim() || null,
+        senha: document.getElementById('senha').value
+      };
+
+      if (!payload.email && !payload.telefone) {
+        show(errorEl, 'Informe ao menos e-mail ou telefone.');
+        return;
+      }
+
+      try {
+        const resp = await fetch('/api/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const text = await resp.text();
+        if (!resp.ok) {
+          // Try to parse JSON error if possible
+          try { const obj = JSON.parse(text); show(errorEl, obj.message ? obj.message : text); }
+          catch { show(errorEl, text || ('Erro ' + resp.status)); }
+          return;
+        }
+        // On success, show response or guidance
+        show(resultEl, 'Usuário cadastrado com sucesso! Você já pode usar seu e-mail/telefone e senha para autenticar.');
+        e.target.reset();
+      } catch (err) {
+        show(errorEl, 'Falha na requisição: ' + err.message);
+      }
+    });
+  </script>
+</body>
+</html>
