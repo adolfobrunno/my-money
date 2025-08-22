@@ -32,6 +32,10 @@ dependencies {
     // Swagger/OpenAPI UI for interactive API interface
     implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.9'
 
+    // AWS Lambda support and serverless container for Spring Boot 3
+    implementation 'com.amazonaws:aws-lambda-java-core:1.2.3'
+    implementation 'com.amazonaws:aws-lambda-java-events:3.11.5'
+    implementation 'com.amazonaws.serverless:aws-serverless-java-container-springboot3:2.0.2'
 
     compileOnly 'org.projectlombok:lombok'
     developmentOnly 'org.springframework.boot:spring-boot-docker-compose'

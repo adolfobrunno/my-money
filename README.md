@@ -79,6 +79,23 @@ A aplicação iniciará em `http://localhost:8080`.
 - Recebimento: `POST /webhooks/whatsapp` — o sistema salva a mensagem e retorna 202.
 - Verificação: `GET /webhooks/whatsapp` — responde ao `hub.challenge` usando o `META_WHATSAPP_VERIFY_TOKEN` configurado.
 
+### Execução como AWS Lambda (Alta Disponibilidade)
+
+Para garantir alta disponibilidade no recebimento de eventos do WhatsApp, este projeto expõe um handler AWS Lambda que reutiliza o mesmo fluxo interno da aplicação:
+
+- Handler: `br.com.abba.soft.mymoney.infrastructure.lambda.WhatsAppWebhookLambdaHandler`
+- Integração: API Gateway (HTTP API ou REST API) mapeando o caminho `/webhooks/whatsapp` para o Lambda.
+- Métodos: `GET` (verificação) e `POST` (eventos).
+
+Passos resumidos de deploy:
+1. Empacote a aplicação (fat jar): `./gradlew.bat bootJar`
+2. Crie uma função Lambda (Java 21) apontando para o handler acima e suba o artefato .jar do build em `build/libs/`.
+3. Configure variáveis de ambiente na Lambda (as mesmas do `application.yml`): `META_WHATSAPP_*`, `OPENAI_*`, e acesso ao MongoDB.
+4. Crie um API Gateway com rota `/webhooks/whatsapp` e métodos GET/POST integrados à Lambda.
+5. Configure o webhook no painel da Meta apontando para a URL do API Gateway.
+
+Observação importante: O job agendado que processa as mensagens (persistidas com status PENDING) permanece no serviço principal (por exemplo, sua instância/contêiner Spring Boot) — a Lambda cuida apenas de receber e enfileirar as mensagens no MongoDB compartilhado.
+
 Formato de mensagens aceitas (exemplos):
 - "Despesa: Almoço; Valor: 35,90; Pagamento: PIX"
 - "Mercado | 120.50 | CARTAO CREDITO"
