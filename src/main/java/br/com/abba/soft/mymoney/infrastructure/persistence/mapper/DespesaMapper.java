@@ -12,6 +12,7 @@ public class DespesaMapper {
                 d.getValor(),
                 d.getDataHora(),
                 d.getTipoPagamento(),
+                d.getCategoria(),
                 d.getUserId()
         );
     }
@@ -25,6 +26,7 @@ public class DespesaMapper {
                 doc.getDataHora(),
                 doc.getTipoPagamento()
         );
+        d.setCategoria(doc.getCategoria());
         d.setUserId(doc.getUserId());
         return d;
     }

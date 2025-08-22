@@ -48,4 +48,87 @@ public class WhatsAppApiClient {
             log.warn("[WhatsAppApiClient] Failed to send WhatsApp message: {}", ex.toString());
         }
     }
+
+    /**
+     * Returns a temporary media URL for the given media id, or null.
+     */
+    public String getMediaUrl(String mediaId) {
+        try {
+            String url = "https://graph.facebook.com/v20.0/" + mediaId;
+            HttpHeaders headers = new HttpHeaders();
+            headers.setBearerAuth(props.getAccessToken());
+            HttpEntity<Void> entity = new HttpEntity<>(headers);
+            ResponseEntity<String> resp = restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
+            if (!resp.getStatusCode().is2xxSuccessful() || resp.getBody() == null) {
+                log.warn("[WhatsAppApiClient] Non-2xx fetching media metadata: status={} body={}", resp.getStatusCode(), resp.getBody());
+                return null;
+            }
+            String body = resp.getBody();
+            // naive extraction of "url":"..."
+            int i = body.indexOf("\"url\"");
+            if (i < 0) return null;
+            int colon = body.indexOf(':', i);
+            int q1 = body.indexOf('"', colon + 1);
+            int q2 = q1 >= 0 ? body.indexOf('"', q1 + 1) : -1;
+            if (q1 >= 0 && q2 > q1) {
+                String raw = body.substring(q1 + 1, q2);
+                String sanitized = sanitizeMediaUrl(raw);
+                if (sanitized == null) {
+                    log.warn("[WhatsAppApiClient] Extracted media URL is invalid: {}", raw);
+                }
+                return sanitized;
+            }
+            return null;
+        } catch (Exception e) {
+            log.warn("[WhatsAppApiClient] Failed to get media URL: {}", e.toString());
+            return null;
+        }
+    }
+
+    private String sanitizeMediaUrl(String raw) {
+        if (raw == null) return null;
+        String s = raw.trim();
+        if (s.isEmpty()) return null;
+        // Unescape common JSON escapes produced by Meta: "\/" and "\u0026"
+        s = s.replace("\\/", "/");
+        s = s.replace("\\u0026", "&");
+        // Remove any stray backslashes left by naive extraction
+        if (s.indexOf('\\') >= 0) {
+            s = s.replace("\\", "");
+        }
+        // Normalize https scheme slashes (e.g., https:/lookaside -> https://lookaside)
+        if (s.startsWith("https:/") && !s.startsWith("https://")) {
+            s = s.replaceFirst("^https:/+", "https://");
+        }
+        if (s.startsWith("http:/") && !s.startsWith("http://")) {
+            s = s.replaceFirst("^http:/+", "http://");
+        }
+        // If scheme missing but looks like a host, prepend https://
+        if (!s.startsWith("http://") && !s.startsWith("https://") && s.matches("^[A-Za-z0-9.-]+/.*")) {
+            s = "https://" + s;
+        }
+        // Final light validation
+        if (!s.startsWith("http://") && !s.startsWith("https://")) return null;
+        return s;
+    }
+
+    /**
+     * Downloads media bytes from an URL using auth header.
+     */
+    public byte[] downloadMedia(String mediaUrl) {
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.setBearerAuth(props.getAccessToken());
+            HttpEntity<Void> entity = new HttpEntity<>(headers);
+            ResponseEntity<byte[]> resp = restTemplate.exchange(mediaUrl, HttpMethod.GET, entity, byte[].class);
+            if (!resp.getStatusCode().is2xxSuccessful() || resp.getBody() == null) {
+                log.warn("[WhatsAppApiClient] Non-2xx downloading media: status={}", resp.getStatusCode());
+                return null;
+            }
+            return resp.getBody();
+        } catch (Exception e) {
+            log.warn("[WhatsAppApiClient] Failed to download media: {}", e.toString());
+            return null;
+        }
+    }
 }

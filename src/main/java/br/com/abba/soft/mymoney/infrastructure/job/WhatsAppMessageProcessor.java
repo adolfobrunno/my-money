@@ -48,9 +48,12 @@ public class WhatsAppMessageProcessor {
         this.openAIExpenseExtractor = openAIExpenseExtractor;
     }
 
-    // Run every 5 minutes
-    @Scheduled(fixedDelay = 5 * 60 * 1000L, initialDelay = 10_000L)
+    // Run every minute
+    @Scheduled(fixedDelay = 60 * 1000L, initialDelay = 10_000L)
     public void processPendingMessages() {
+
+        log.info("[WhatsAppMessageProcessor] Processando mensagens pendentes...");
+
         List<WhatsAppIncomingMessageDocument> pendings = messageRepository.findTop50ByStatusOrderByReceivedAtAsc(WhatsAppMessageStatus.PENDING);
         if (pendings.isEmpty()) return;
         for (WhatsAppIncomingMessageDocument msg : pendings) {
@@ -78,6 +81,8 @@ public class WhatsAppMessageProcessor {
                 msg.setStatus(WhatsAppMessageStatus.PROCESSED);
                 msg.setErrorMessage(null);
                 messageRepository.save(msg);
+
+                log.info("[WhatsAppMessageProcessor] Despesa registrada com sucesso: {}", criada);
 
                 // Friendly confirmation back to user (best-effort)
                 try {

@@ -2,29 +2,41 @@ package br.com.abba.soft.mymoney.domain.model;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.Objects;
 
 import lombok.Getter;
 import lombok.Setter;
+import lombok.ToString;
 
 @Setter
 @Getter
+@ToString
 public class Despesa {
     private String id;
     private String descricao;
     private BigDecimal valor;
-    private LocalDateTime dataHora;
+    private ZonedDateTime dataHora;
     private TipoPagamento tipoPagamento;
+    private Categoria categoria;
     private String userId;
 
     public Despesa() {}
 
-    public Despesa(String id, String descricao, BigDecimal valor, LocalDateTime dataHora, TipoPagamento tipoPagamento) {
+    public Despesa(String id, String descricao, BigDecimal valor, ZonedDateTime dataHora, TipoPagamento tipoPagamento) {
         this.id = id;
         this.descricao = descricao;
         this.valor = valor;
         this.dataHora = dataHora;
         this.tipoPagamento = tipoPagamento;
+    }
+
+    // Convenience constructor to maintain backward compatibility with tests using LocalDateTime
+    public Despesa(String id, String descricao, BigDecimal valor, LocalDateTime dataHora, TipoPagamento tipoPagamento) {
+        this(id, descricao, valor,
+                dataHora != null ? ZonedDateTime.of(dataHora, ZoneId.systemDefault()) : null,
+                tipoPagamento);
     }
 
     public void validate() {

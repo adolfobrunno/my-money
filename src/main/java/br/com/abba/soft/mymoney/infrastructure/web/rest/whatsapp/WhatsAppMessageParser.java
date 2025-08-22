@@ -2,11 +2,13 @@ package br.com.abba.soft.mymoney.infrastructure.web.rest.whatsapp;
 
 import br.com.abba.soft.mymoney.domain.model.Despesa;
 import br.com.abba.soft.mymoney.domain.model.TipoPagamento;
+import br.com.abba.soft.mymoney.domain.model.Categoria;
 
 import java.math.BigDecimal;
 import java.text.NumberFormat;
 import java.text.ParseException;
 import java.time.LocalDateTime;
+import java.time.ZonedDateTime;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -75,7 +77,8 @@ public class WhatsAppMessageParser {
         d.setDescricao(descricao);
         d.setValor(valor);
         d.setTipoPagamento(tipo);
-        d.setDataHora(LocalDateTime.now());
+        d.setDataHora(ZonedDateTime.now());
+        d.setCategoria(inferCategoria(descricao));
         d.setUserId(userIdFromWhats);
         return Optional.of(d);
     }
@@ -117,5 +120,21 @@ public class WhatsAppMessageParser {
         } catch (IllegalArgumentException ex) {
             return null;
         }
+    }
+
+    private static Categoria inferCategoria(String descricao) {
+        if (descricao == null) return Categoria.OUTRAS;
+        String desc = descricao.toLowerCase(Locale.ROOT);
+        if (desc.matches(".*\\b(almo(c|ç)o|jantar|comida|restaurante|lanche|hamb(ur|ú)guer|pizza|padaria|refe(i|í)cao|marmita|bar)\\b.*"))
+            return Categoria.ALIMENTACAO;
+        if (desc.matches(".*\\b(mercado|supermercado|compras|hortifruti|a(c|ç)ougue|sacolão|atacado)\\b.*"))
+            return Categoria.MERCADO;
+        if (desc.matches(".*\\b(curso|faculdade|escola|mensalidade|material|livro|aluno|ensino|ead|matr(i|í)cula)\\b.*"))
+            return Categoria.EDUCACAO;
+        if (desc.matches(".*\\b(cinema|lazer|viagem|passeio|parque|show|assinatura|netflix|spotify|game|jogo)\\b.*"))
+            return Categoria.LAZER;
+        if (desc.matches(".*\\b(luz|energia|agua|internet|telefone|aluguel|condominio|gas|conta|boleto)\\b.*"))
+            return Categoria.CONTAS_DO_DIA_A_DIA;
+        return Categoria.OUTRAS;
     }
 }

@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 
 @Schema(description = "Resumo de despesas em um período")
 public class RelatorioDespesasResponse {
@@ -13,6 +14,8 @@ public class RelatorioDespesasResponse {
     private int quantidade;
     @Schema(description = "Lista de despesas no período")
     private List<DespesaResponse> despesas;
+    @Schema(description = "Totais por categoria (para gráfico de pizza)")
+    private Map<String, BigDecimal> totalPorCategoria;
 
     public RelatorioDespesasResponse() {}
 
@@ -30,4 +33,7 @@ public class RelatorioDespesasResponse {
 
     public List<DespesaResponse> getDespesas() { return despesas; }
     public void setDespesas(List<DespesaResponse> despesas) { this.despesas = despesas; }
+
+    public Map<String, BigDecimal> getTotalPorCategoria() { return totalPorCategoria; }
+    public void setTotalPorCategoria(Map<String, BigDecimal> totalPorCategoria) { this.totalPorCategoria = totalPorCategoria; }
 }

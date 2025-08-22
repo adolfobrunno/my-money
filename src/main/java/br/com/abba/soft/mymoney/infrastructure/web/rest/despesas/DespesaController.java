@@ -113,6 +113,13 @@ public class DespesaController {
         List<DespesaResponse> itens = despesas.stream().map(DespesaDtoMapper::toResponse).toList();
         BigDecimal total = service.totalizarValor(despesas);
         RelatorioDespesasResponse resp = new RelatorioDespesasResponse(total, itens.size(), itens);
+        // Totais por categoria
+        java.util.Map<String, java.math.BigDecimal> porCat = new java.util.LinkedHashMap<>();
+        for (var d : despesas) {
+            String key = d.getCategoria() == null ? "OUTRAS" : d.getCategoria().name();
+            porCat.merge(key, d.getValor(), java.math.BigDecimal::add);
+        }
+        resp.setTotalPorCategoria(porCat);
         return ResponseEntity.ok(resp);
     }
 

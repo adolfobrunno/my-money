@@ -2,6 +2,7 @@ package br.com.abba.soft.mymoney.infrastructure.ai;
 
 import br.com.abba.soft.mymoney.domain.model.Despesa;
 import br.com.abba.soft.mymoney.domain.model.TipoPagamento;
+import br.com.abba.soft.mymoney.domain.model.Categoria;
 import br.com.abba.soft.mymoney.infrastructure.config.OpenAIProperties;
 import br.com.abba.soft.mymoney.infrastructure.web.rest.whatsapp.WhatsAppMessageParser;
 import com.fasterxml.jackson.annotation.JsonInclude;
@@ -15,7 +16,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.*;
 
 @Service
@@ -64,7 +70,7 @@ public class OpenAIExpenseExtractor {
             if (content == null || content.isBlank()) {
                 throw new IllegalStateException("OpenAI não retornou conteúdo");
             }
-            Despesa d = parseDespesaJson(content, userId);
+            Despesa d = parseDespesaJson(content, userId, locale);
             return Optional.ofNullable(d);
         } catch (Exception e) {
             log.warn("[OpenAIExpenseExtractor] Falha na extração via OpenAI: {}", e.getMessage());
@@ -78,11 +84,15 @@ public class OpenAIExpenseExtractor {
         propsMap.put("valor", Map.of("type", "number"));
         propsMap.put("tipoPagamento", Map.of(
                 "type", "string",
-                "enum", List.of("DINHEIRO", "PIX", "CARTAO_CREDITO", "CARTAO_DEBITO")
+                "enum", TipoPagamento.values()
         ));
         propsMap.put("dataHora", Map.of(
                 "type", "string",
                 "format", "date-time"
+        ));
+        propsMap.put("categoria", Map.of(
+                "type", "string",
+                "enum", Categoria.values()
         ));
 
         Map<String, Object> schema = new LinkedHashMap<>();
@@ -104,7 +114,15 @@ public class OpenAIExpenseExtractor {
         List<Map<String, String>> messages = new ArrayList<>();
         messages.add(Map.of(
                 "role", "system",
-                "content", "Você é um assistente que extrai uma Despesa a partir de mensagens de WhatsApp em linguagem natural. Sempre responda apenas com JSON válido aderente ao schema. Campos: descricao (string), valor (number), tipoPagamento (DINHEIRO|PIX|CARTAO_CREDITO|CARTAO_DEBITO), dataHora (ISO-8601). Se a mensagem não for uma despesa, responda apenas com um JSON com campos mínimos faltando que fará a validação falhar. Idioma: pt-BR."
+                "content", """
+                        Você é um assistente que extrai uma Despesa a partir de mensagens de WhatsApp em linguagem natural.
+                        Sempre responda apenas com JSON válido aderente ao schema. Campos: descricao (string), valor (number),
+                        tipoPagamento (DINHEIRO|PIX|CARTAO_CREDITO|CARTAO_DEBITO|VALE_REFEICAO|VALE_ALIMENTACAO|VOUCHER), dataHora (ISO-8601),
+                        categoria (ALIMENTACAO|MERCADO|EDUCACAO|LAZER|CONTAS_DO_DIA_A_DIA|OUTRAS) inferida a partir da descrição.
+                        Se a mensagem não for uma despesa, responda apenas com um JSON com campos
+                        mínimos faltando que fará a validação falhar. Idioma: pt-BR.
+                        Se não conseguir extrair a data e hora, pode retornar o campo nulo.
+                       """
         ));
         String localeTag = locale == null ? "pt-BR" : locale.toLanguageTag();
         messages.add(Map.of(
@@ -137,18 +155,61 @@ public class OpenAIExpenseExtractor {
         return content == null ? null : content.toString();
     }
 
-    private Despesa parseDespesaJson(String content, String userId) throws Exception {
+    private Despesa parseDespesaJson(String content, String userId, Locale locale) throws Exception {
         Map<String, Object> json = mapper.readValue(content, new TypeReference<Map<String, Object>>(){});
         Despesa d = new Despesa();
         d.setDescricao(asString(json.get("descricao")));
         d.setValor(asBigDecimal(json.get("valor")));
         d.setTipoPagamento(asTipoPagamento(asString(json.get("tipoPagamento"))));
         String dt = asString(json.get("dataHora"));
-        d.setDataHora(dt == null || dt.isBlank() ? LocalDateTime.now() : LocalDateTime.parse(dt));
+        ZonedDateTime zdt = parseFlexibleDateTime(dt, locale);
+        d.setDataHora(zdt != null ? zdt : ZonedDateTime.now());
+        String catS = asString(json.get("categoria"));
+        d.setCategoria(asCategoria(catS, d.getDescricao()));
         d.setUserId(userId);
         // Validate to ensure correctness
         d.validate();
         return d;
+    }
+
+    private ZonedDateTime parseFlexibleDateTime(String dt, Locale locale) {
+        if (dt == null) return null;
+        String s = dt.trim();
+        if (s.isEmpty()) return null;
+        // Try ISO-8601 first
+        try {
+            return ZonedDateTime.parse(s);
+        } catch (DateTimeParseException ignored) {}
+
+        Locale loc = (locale == null ? Locale.forLanguageTag("pt-BR") : locale);
+        ZoneId zone = ZoneId.systemDefault();
+        String[] patterns = new String[] {
+                "dd/MM/uuuu, HH:mm:ss",
+                "dd/MM/uuuu, HH:mm",
+                "dd/MM/uuuu HH:mm:ss",
+                "dd/MM/uuuu HH:mm",
+                "dd-MM-uuuu HH:mm:ss",
+                "dd-MM-uuuu HH:mm",
+                "dd.MM.uuuu HH:mm:ss",
+                "dd.MM.uuuu HH:mm",
+                "dd/MM/uuuu"
+        };
+        for (String p : patterns) {
+            DateTimeFormatter f = DateTimeFormatter.ofPattern(p, loc);
+            // If pattern has only date, parse LocalDate; else LocalDateTime
+            if (p.equals("dd/MM/uuuu")) {
+                try {
+                    LocalDate ld = LocalDate.parse(s, f);
+                    return ld.atStartOfDay(zone);
+                } catch (DateTimeParseException ignored) {}
+            } else {
+                try {
+                    LocalDateTime ldt = LocalDateTime.parse(s, f);
+                    return ldt.atZone(zone);
+                } catch (DateTimeParseException ignored) {}
+            }
+        }
+        return null;
     }
 
     private String asString(Object o) { return o == null ? null : String.valueOf(o); }
@@ -160,5 +221,36 @@ public class OpenAIExpenseExtractor {
     private TipoPagamento asTipoPagamento(String s) {
         if (s == null) return null;
         try { return TipoPagamento.valueOf(s.trim().toUpperCase(Locale.ROOT)); } catch (Exception e) { return null; }
+    }
+    private Categoria asCategoria(String s, String descricao) {
+        if (s != null) {
+            String key = s.trim().toUpperCase(Locale.ROOT)
+                    .replace('Ã','A') // guard common accent artifacts
+                    .replace('Ç','C')
+                    .replace('É','E')
+                    .replace('Ê','E')
+                    .replace('Á','A')
+                    .replace('Í','I')
+                    .replace('Ó','O')
+                    .replace('Ú','U')
+                    .replace('À','A')
+                    .replace('Â','A')
+                    .replace('Ô','O');
+            key = key.replace(' ', '_');
+            try { return Categoria.valueOf(key); } catch (Exception ignored) {}
+        }
+        // heuristic from description
+        String desc = descricao == null ? "" : descricao.toLowerCase(Locale.ROOT);
+        if (desc.matches(".*\\b(almo(c|ç)o|jantar|comida|restaurante|lanche|hamb(ur|ú)guer|pizza|padaria|refe(i|í)cao|marmita|bar)\\b.*"))
+            return Categoria.ALIMENTACAO;
+        if (desc.matches(".*\\b(mercado|supermercado|compras|hortifruti|a(c|ç)ougue|sacolão|atacado)\\b.*"))
+            return Categoria.MERCADO;
+        if (desc.matches(".*\\b(curso|faculdade|escola|mensalidade|material|livro|aluno|ensino|ead|matr(i|í)cula)\\b.*"))
+            return Categoria.EDUCACAO;
+        if (desc.matches(".*\\b(cinema|lazer|viagem|passeio|parque|show|assinatura|netflix|spotify|game|jogo)\\b.*"))
+            return Categoria.LAZER;
+        if (desc.matches(".*\\b(luz|energia|agua|internet|telefone|aluguel|condominio|gas|conta|boleto)\\b.*"))
+            return Categoria.CONTAS_DO_DIA_A_DIA;
+        return Categoria.OUTRAS;
     }
 }

@@ -1,6 +1,7 @@
 package br.com.abba.soft.mymoney.infrastructure.web.rest.whatsapp;
 
 import br.com.abba.soft.mymoney.application.DespesaService;
+import br.com.abba.soft.mymoney.infrastructure.ai.OpenAIAudioTranscriber;
 import br.com.abba.soft.mymoney.infrastructure.config.WhatsAppProperties;
 import br.com.abba.soft.mymoney.infrastructure.persistence.entity.WhatsAppIncomingMessageDocument;
 import br.com.abba.soft.mymoney.infrastructure.persistence.repository.WhatsAppIncomingMessageRepository;
@@ -28,12 +29,16 @@ public class WhatsAppWebhookController {
     // keeping service reference in case of future use, but no immediate persistence now
     private final DespesaService despesaService;
     private final Locale appLocale;
+    private final WhatsAppApiClient whatsappApiClient;
+    private final OpenAIAudioTranscriber audioTranscriber;
 
-    public WhatsAppWebhookController(WhatsAppProperties properties, WhatsAppIncomingMessageRepository messageRepository, DespesaService despesaService, Locale appLocale) {
+    public WhatsAppWebhookController(WhatsAppProperties properties, WhatsAppIncomingMessageRepository messageRepository, DespesaService despesaService, Locale appLocale, WhatsAppApiClient whatsappApiClient, OpenAIAudioTranscriber audioTranscriber) {
         this.properties = properties;
         this.messageRepository = messageRepository;
         this.despesaService = despesaService;
         this.appLocale = appLocale;
+        this.whatsappApiClient = whatsappApiClient;
+        this.audioTranscriber = audioTranscriber;
     }
 
     @GetMapping
@@ -89,13 +94,49 @@ public class WhatsAppWebhookController {
                         received++;
                         Map<?,?> message = (Map<?,?>) m;
                         String type = Objects.toString(message.get("type"), "");
-                        if (!"text".equals(type)) {
-                            errors.add("Ignoring non-text message");
+                        String from = Objects.toString(message.get("from"), "unknown");
+                        String body = null;
+                        if ("text".equals(type)) {
+                            Map<?,?> text = (Map<?,?>) message.get("text");
+                            body = text == null ? null : Objects.toString(text.get("body"), null);
+                        } else if ("audio".equals(type)) {
+                            // WhatsApp audio message: must fetch media and transcribe
+                            Map<?,?> audio = (Map<?,?>) message.get("audio");
+                            String mediaId = audio == null ? null : Objects.toString(audio.get("id"), null);
+                            String mimeType = audio == null ? null : Objects.toString(audio.get("mime_type"), null);
+                            if (mediaId == null) {
+                                errors.add("Audio message without media id");
+                                continue;
+                            }
+                            String mediaUrl = whatsappApiClient.getMediaUrl(mediaId);
+                            if (mediaUrl == null) {
+                                errors.add("Failed to get media URL for id=" + mediaId);
+                                continue;
+                            }
+                            byte[] bytes = whatsappApiClient.downloadMedia(mediaUrl);
+                            if (bytes == null || bytes.length == 0) {
+                                errors.add("Failed to download media for id=" + mediaId);
+                                continue;
+                            }
+                            String ext = ".bin";
+                            if (mimeType != null) {
+                                if (mimeType.contains("ogg")) ext = ".ogg";
+                                else if (mimeType.contains("mpeg")) ext = ".mp3";
+                                else if (mimeType.contains("aac")) ext = ".aac";
+                                else if (mimeType.contains("wav")) ext = ".wav";
+                                else if (mimeType.contains("amr")) ext = ".amr";
+                            }
+                            String filename = "audio-" + mediaId + ext;
+                            String transcript = audioTranscriber.transcribe(bytes, filename, mimeType != null ? mimeType : "application/octet-stream", appLocale);
+                            if (transcript == null || transcript.isBlank()) {
+                                errors.add("Failed to transcribe audio for id=" + mediaId);
+                                continue;
+                            }
+                            body = transcript;
+                        } else {
+                            errors.add("Ignoring unsupported message type: " + type);
                             continue;
                         }
-                        Map<?,?> text = (Map<?,?>) message.get("text");
-                        String body = text == null ? null : Objects.toString(text.get("body"), null);
-                        String from = Objects.toString(message.get("from"), "unknown");
 
                         // queue message for async processing
                         WhatsAppIncomingMessageDocument doc = new WhatsAppIncomingMessageDocument();

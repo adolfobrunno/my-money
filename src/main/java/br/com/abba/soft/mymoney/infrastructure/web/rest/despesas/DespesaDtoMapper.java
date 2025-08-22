@@ -11,6 +11,7 @@ public class DespesaDtoMapper {
         d.setValor(req.getValor());
         d.setDataHora(req.getDataHora());
         d.setTipoPagamento(req.getTipoPagamento());
+        d.setCategoria(req.getCategoria());
         return d;
     }
 
@@ -20,7 +21,8 @@ public class DespesaDtoMapper {
                 d.getDescricao(),
                 d.getValor(),
                 d.getDataHora(),
-                d.getTipoPagamento()
+                d.getTipoPagamento(),
+                d.getCategoria()
         );
     }
 }

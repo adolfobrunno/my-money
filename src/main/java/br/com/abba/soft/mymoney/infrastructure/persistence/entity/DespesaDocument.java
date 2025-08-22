@@ -6,6 +6,7 @@ import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.ZonedDateTime;
 
 @Document(collection = "despesas")
 public class DespesaDocument {
@@ -13,18 +14,20 @@ public class DespesaDocument {
     private String id;
     private String descricao;
     private BigDecimal valor;
-    private LocalDateTime dataHora;
+    private ZonedDateTime dataHora;
     private TipoPagamento tipoPagamento;
+    private br.com.abba.soft.mymoney.domain.model.Categoria categoria;
     private String userId;
 
     public DespesaDocument() {}
 
-    public DespesaDocument(String id, String descricao, BigDecimal valor, LocalDateTime dataHora, TipoPagamento tipoPagamento, String userId) {
+    public DespesaDocument(String id, String descricao, BigDecimal valor, ZonedDateTime dataHora, TipoPagamento tipoPagamento, br.com.abba.soft.mymoney.domain.model.Categoria categoria, String userId) {
         this.id = id;
         this.descricao = descricao;
         this.valor = valor;
         this.dataHora = dataHora;
         this.tipoPagamento = tipoPagamento;
+        this.categoria = categoria;
         this.userId = userId;
     }
 
@@ -34,10 +37,12 @@ public class DespesaDocument {
     public void setDescricao(String descricao) { this.descricao = descricao; }
     public BigDecimal getValor() { return valor; }
     public void setValor(BigDecimal valor) { this.valor = valor; }
-    public LocalDateTime getDataHora() { return dataHora; }
-    public void setDataHora(LocalDateTime dataHora) { this.dataHora = dataHora; }
+    public ZonedDateTime getDataHora() { return dataHora; }
+    public void setDataHora(ZonedDateTime dataHora) { this.dataHora = dataHora; }
     public TipoPagamento getTipoPagamento() { return tipoPagamento; }
     public void setTipoPagamento(TipoPagamento tipoPagamento) { this.tipoPagamento = tipoPagamento; }
+    public br.com.abba.soft.mymoney.domain.model.Categoria getCategoria() { return categoria; }
+    public void setCategoria(br.com.abba.soft.mymoney.domain.model.Categoria categoria) { this.categoria = categoria; }
     public String getUserId() { return userId; }
     public void setUserId(String userId) { this.userId = userId; }
 }

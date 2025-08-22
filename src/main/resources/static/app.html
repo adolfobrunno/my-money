@@ -90,6 +90,10 @@
         <button class="btn secondary" id="btnRelatorio">Gerar</button>
         <div id="relResumo" class="success" style="display:none"></div>
       </div>
+      <div id="pieWrap" style="margin-top:12px; display:none;">
+        <canvas id="pieCanvas" width="320" height="200" style="width:100%; max-width:420px; height:240px; display:block; margin:auto; background:#0b1220; border:1px solid rgba(255,255,255,.06); border-radius:12px;"></canvas>
+        <div id="pieLegend" style="display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:6px; margin-top:8px;"></div>
+      </div>
     </div>
 
     <div class="card">
@@ -117,6 +121,39 @@
   function toLocalDateTimeString(dt){ if(!dt) return null; return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/.test(dt) ? (dt.length===16? dt+':00': dt) : dt; }
   function money(n){ try{ return Number(n).toLocaleString('pt-BR',{style:'currency',currency:'BRL'}); }catch{ return 'R$ '+n; } }
   function fmt(dt){ try{ const d = new Date(dt); if(!isNaN(d)) return d.toLocaleString('pt-BR'); }catch{} return dt; }
+  function colorFor(i){ const palette=['#60a5fa','#34d399','#f472b6','#f59e0b','#a78bfa','#f87171','#22d3ee','#facc15']; return palette[i%palette.length]; }
+  function drawPie(dataMap){
+    const wrap = document.getElementById('pieWrap'); const canvas = document.getElementById('pieCanvas'); const legend = document.getElementById('pieLegend');
+    if(!dataMap || Object.keys(dataMap).length===0){ wrap.style.display='none'; return; }
+    wrap.style.display='block';
+    const ctx = canvas.getContext('2d');
+    const rect = canvas.getBoundingClientRect();
+    // Adjust canvas size for device pixel ratio
+    const dpr = window.devicePixelRatio || 1;
+    const width = canvas.clientWidth || rect.width; const height = canvas.clientHeight || rect.height;
+    canvas.width = Math.round(width * dpr); canvas.height = Math.round(height * dpr); ctx.scale(dpr, dpr);
+    ctx.clearRect(0,0,width,height);
+    const entries = Object.entries(dataMap).filter(([,v])=>Number(v)>0);
+    const total = entries.reduce((s, [,v])=>s+Number(v),0);
+    const cx = width/2; const cy = height/2; const radius = Math.min(width,height)/2 - 10;
+    let start = -Math.PI/2; let i=0; legend.innerHTML='';
+    for(const [label, val] of entries){
+      const ang = total>0 ? (Number(val)/total)*Math.PI*2 : 0;
+      const end = start + ang; const col = colorFor(i++);
+      // slice
+      ctx.beginPath(); ctx.moveTo(cx,cy); ctx.arc(cx,cy,radius,start,end); ctx.closePath(); ctx.fillStyle=col; ctx.fill();
+      // label
+      const mid = (start+end)/2; const rx = cx + Math.cos(mid)*(radius*0.65); const ry = cy + Math.sin(mid)*(radius*0.65);
+      ctx.fillStyle = '#e5e7eb'; ctx.font='12px system-ui,Segoe UI,Arial'; const pct = total? Math.round((Number(val)/total)*100):0;
+      ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(pct+'%', rx, ry);
+      // legend item
+      const item = document.createElement('div'); item.style.display='flex'; item.style.alignItems='center'; item.style.gap='8px';
+      const sw = document.createElement('span'); sw.style.width='12px'; sw.style.height='12px'; sw.style.borderRadius='3px'; sw.style.display='inline-block'; sw.style.background=col;
+      const txt = document.createElement('span'); txt.textContent = label + ' • ' + money(val);
+      item.appendChild(sw); item.appendChild(txt); legend.appendChild(item);
+      start = end;
+    }
+  }
 
   let currentPage = 0;
   const pageSize = 10;
@@ -195,6 +232,7 @@
     if(!res.ok){ show(err, (res.data && res.data.message) || res.raw || ('HTTP '+res.status)); return; }
     const r = res.data || { total:0, quantidade:0 };
     show(resumo, `Total: ${money(r.total)} • Itens: ${r.quantidade}`);
+    drawPie(r.totalPorCategoria || {});
   }
 
   document.getElementById('btnLogout').addEventListener('click', ()=>{ localStorage.removeItem('mm_auth'); location.replace('/login.html'); });
